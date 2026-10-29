@@ -4,12 +4,13 @@
 
 这是一份待完成的研究软件清单，并非当前功能承诺。每个新增算法都应附可复现示例、边界约定和可与精确结果或独立实现比较的测试。
 
-第一轮实现已提供独立接受过滤器、Wolff/SW 工作区、Ising 热化/测量计划、
-可恢复运行与 CSV/TOML 持久化；见 [软件设计](software-design.md) 和
-[foundation 实验](../experiments/foundation/README.md)。这只完成了计划中的一条
-Ising 工作流程，尚未把所有模型统一纳入运行器。
+已实现独立接受过滤器、纯 Sweeny 权重比、Wolff/SW/键连通性工作区，以及
+Ising、Potts、随机团簇的统一采样时钟、可恢复运行与 CSV/TOML 持久化。
+模型各有配置和测量定义；见 [软件设计](software-design.md)、
+[Ising 实验](../experiments/foundation/README.md) 和
+[Potts/随机团簇实验](../experiments/multimodel/README.md)。
 
-1. **运行管理**：扩展到 Potts/随机团簇，流式数据、独立链并行、更系统的参数扫描与基准测试。
+1. **运行管理**：流式数据、独立链并行、更系统的参数扫描与基准测试；Worm 等不同表示需先明确测量时钟与统计量，再加入适配器。
 2. **模型与几何**：开放/周期及一般图统一接口、site percolation、更多晶格；外场、反铁磁和无序耦合须与每种更新的适用范围一起设计。
 3. **可观测量**：比热、磁化率、Binder 比、关联函数、团簇/绕环概率；文档明确总量、每点、连通项及估计量归一化。
 4. **算法**：Newman–Ziff 增量渗流，适合大图的 Sweeny 动态连通性，更多 worm 系综与估计量、1/t 或其他改进型密度状态采样、直方图重加权。

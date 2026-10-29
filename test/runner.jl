@@ -113,7 +113,7 @@ end
         @test_throws ArgumentError load_checkpoint(altered)
         write(altered, "not a checkpoint\n")
         @test_throws ArgumentError load_checkpoint(altered)
-        write(altered, "ClassicalMonteCarlo checkpoint 1\n999999999\n")
+        write(altered, ClassicalMonteCarlo._CHECKPOINT_MAGIC * "\n999999999\n")
         @test_throws ArgumentError load_checkpoint(altered)
         broken = deepcopy(state)
         push!(broken.energies, 0.0)

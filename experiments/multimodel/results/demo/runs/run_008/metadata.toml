@@ -1,0 +1,49 @@
+rng_type = "Xoshiro"
+model = "Potts"
+samples_retained = 16384
+trace_sha256 = "595c96123fa4e7f4ee07781d596c8b48ed9fa52cd3d0dc59c802554a53cb144f"
+trace_columns = ["measurement", "update", "total_energy", "order_parameter", "simplex_squared", "kernel_work"]
+boundary = "periodic square"
+units = "kB=1; total E; normalized maximum-colour order parameter; squared simplex magnetization"
+julia_version = "1.12.6"
+platform = "arm64-apple-darwin24.0.0"
+complete = true
+work_unit = "flipped_sites"
+schema_version = 2
+work_aggregation = "sum over each measurement interval; not elapsed CPU work"
+update_unit = "wolff_cluster"
+updates_completed = 20480
+
+[config]
+model = "Potts"
+L = 3
+stride = 1
+q = 3
+algorithm = "wolff"
+initial = "ordered"
+beta = 0.7
+J = 1.0
+samples = 16384
+seed = 2026111073
+burn = 4096
+
+[observable_units]
+order_parameter = "(q*max_colour_count/N-1)/(q-1)"
+simplex_squared = "(q*sum_colour(count/N)^2-1)/(q-1)"
+total_energy = "total Hamiltonian"
+
+[source_sha256]
+"src/runner/specifications.jl" = "a8579081ca804ee523388626b077c060a8b7c41d262a08a6521846d8c6eef0cc"
+"Project.toml" = "55d7b1cb9bfb7176685acc9e5ab7666e713c620b61b24047ec9bc5458e34e391"
+"src/ClassicalMonteCarlo.jl" = "7f5c47961751e2241c858c8067b3a2625c8b0406b5fbc2c16c6aabd0512dd3e9"
+"src/percolation.jl" = "821eeaf962302aca5a6bb2e6574d2c98f49b26f0c19bf4ca076f7c18fc29e0d4"
+"src/acceptance.jl" = "2e372d67eea3211a91527a354dcadcef481ae91d89d116706a8318a37106c412"
+"src/random.jl" = "7c66f16cdb6ac130bba563bbb167e882794dc1f497734399cc3fdc43f2fc524c"
+"src/runner/adapters.jl" = "0878c009daa95f7ea92df19bdd551502d8cb910e7ebe1b611d188c9dfe9b8045"
+"src/analysis.jl" = "d424059cd02f77f06b69e0cc31bba926fd9596c0bd6f38a2c1f220f8be5c62d4"
+"src/disjoint_sets.jl" = "9489f38fda2bc1adec7497fa764dfd25c11cdbb4b771962739a121bcd7bcfefb"
+"src/model_observables.jl" = "e904e8404a7eb1b4ff8336369bf0a95e78c0c25e34513216db8a557960d91952"
+"src/runner.jl" = "219bf188a8f1bb0d85b4e7dc530acde982ff5eee997f56f58218acb86a597467"
+"src/worm.jl" = "a720ba95b26a8549067ef944c24680c9ba2a41481a83be98fb6e7dcf7a46f486"
+"src/entropic.jl" = "eba6e6d7e0112f72f83d52a29bf361b716abe7bcb99831c7e1477e11cfe8e9d6"
+"src/spins.jl" = "88233faefdb76a126418423e66a4923560bff0e696859e62eafe26cc2a85d371"

@@ -16,6 +16,14 @@ The numerical questions are deliberately narrow:
 These are validation and finite-size benchmarking questions, not claims of new
 critical exponents. See [the actual results](results/demo/RESULTS.md).
 
+The supplied dataset records the first runner generation, preserved in commit
+[`9496d51`](https://github.com/CountSereno/ClassicalMonteCarlo.jl/tree/9496d51fedbdbf78324b672820821fe68b78c3c0).
+After the multi-model extension its source hashes differ from current code;
+verify it without `--require-current-source` when inspecting historical data.
+Its schema-1 native checkpoint requires that original environment. The portable
+CSV/TOML records remain readable, and the current Ising API can generate a new
+dataset with new provenance. The next study is [Potts and random cluster](../multimodel/README.md).
+
 ## Run from the repository root
 
 Generation, verification and analysis use the package and Julia standard libraries only:

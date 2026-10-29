@@ -228,25 +228,6 @@ function wolff!(m::Union{Ising,Potts}, beta::Real;
     cluster_size
 end
 
-@inline function _findroot!(parent, i)
-    while parent[i] != i
-        parent[i] = parent[parent[i]]
-        i = parent[i]
-    end
-    i
-end
-@inline function _union!(parent, sizes, i, j)
-    a, b = _findroot!(parent, i), _findroot!(parent, j)
-    if a != b
-        if sizes[a] < sizes[b]
-            a, b = b, a
-        end
-        parent[b] = a
-        sizes[a] += sizes[b]
-    end
-    nothing
-end
-
 """
     SwendsenWangWorkspace(model)
 
@@ -289,10 +270,7 @@ function swendsen_wang!(m::Union{Ising,Potts}, beta::Real;
     p = _cluster_probability(m, b)
     n = length(m.spins)
     parent, sizes, colours = workspace.parent, workspace.sizes, workspace.colours
-    for i in 1:n
-        parent[i] = i
-        sizes[i] = 1
-    end
+    _reset_sets!(parent, sizes)
     for i in 1:n
         _, right, _, up = _neighbours(m, i)
         for j in (right, up)

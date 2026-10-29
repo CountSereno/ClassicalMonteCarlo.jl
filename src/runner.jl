@@ -1,146 +1,99 @@
-# A deliberately small execution layer: kernels update physics; the runner owns
-# the clock, sampling schedule, random stream and recoverable experiment state.
+# Shared execution and persistence. Model definitions, kernel updates and
+# statistical inference remain independent of this scheduling layer.
 using Serialization, SHA, TOML
 
-export RunSpec, RunState, MetropolisKernel, WolffKernel, SwendsenWangKernel,
-       start_run, advance!, run!, iscomplete, update_unit, work_unit,
-       save_checkpoint, load_checkpoint, export_run, run_metadata
+export AbstractRunSpec, RunSpec, PottsRunSpec, RandomClusterRunSpec, RunState,
+       MetropolisKernel, WolffKernel, SwendsenWangKernel, SweenyKernel,
+       IndependentBondKernel, observations, start_run, advance!, run!, iscomplete,
+       update_unit, work_unit, save_checkpoint, load_checkpoint, export_run,
+       run_metadata
 
-const RUN_SCHEMA_VERSION = 1
-const _CHECKPOINT_MAGIC = "ClassicalMonteCarlo checkpoint 1"
+# Schema 2 adds typed model-specific observation tables and new specification
+# families. Old native checkpoints require their original source environment.
+const RUN_SCHEMA_VERSION = 2
+const _CHECKPOINT_MAGIC = "ClassicalMonteCarlo checkpoint 2"
 
-"""
-    RunSpec(; L, beta, J=1, algorithm=:metropolis, initial=:random,
-              seed=0, burn=1000, samples=1000, stride=1)
-
-Validated schedule for a periodic square, zero-field Ising experiment. `burn`
-and `stride` count kernel updates: one Metropolis sweep, one Wolff cluster, or
-one Swendsen–Wang sweep. The first measurement follows `burn + stride` updates;
-initial and warm-up states are not measured. `samples` is the retained count.
-
-The runner supports this one model family intentionally. New model families
-should add their own validated specification rather than overload these units.
-"""
-struct RunSpec
-    L::Int
-    beta::Float64
-    J::Float64
-    algorithm::Symbol
-    initial::Symbol
-    seed::Int
-    burn::Int
-    samples::Int
-    stride::Int
-
-    function RunSpec(; L::Integer, beta::Real, J::Real=1,
-                     algorithm::Symbol=:metropolis, initial::Symbol=:random,
-                     seed::Integer=0, burn::Integer=1000,
-                     samples::Integer=1000, stride::Integer=1)
-        L >= 3 || throw(ArgumentError("L must be at least 3"))
-        b, j = Float64(beta), Float64(J)
-        isfinite(b) && b >= 0 || throw(ArgumentError("beta must be finite and nonnegative"))
-        isfinite(j) || throw(ArgumentError("J must be finite"))
-        algorithm in (:metropolis, :wolff, :swendsen_wang) || throw(ArgumentError("unknown algorithm"))
-        algorithm != :metropolis && j < 0 && throw(ArgumentError("cluster kernels require J >= 0"))
-        initial in (:random, :up, :down) || throw(ArgumentError("unknown initial state"))
-        seed >= 0 || throw(ArgumentError("seed must be nonnegative"))
-        burn >= 0 || throw(ArgumentError("burn must be nonnegative"))
-        samples > 0 || throw(ArgumentError("samples must be positive"))
-        stride > 0 || throw(ArgumentError("stride must be positive"))
-        l, s, w, n, d = Int(L), Int(seed), Int(burn), Int(samples), Int(stride)
-        Base.checked_mul(l, l)
-        Base.checked_add(w, Base.checked_mul(n, d))
-        new(l, b, j, algorithm, initial, s, w, n, d)
-    end
-end
-
-abstract type AbstractIsingKernel end
-struct MetropolisKernel <: AbstractIsingKernel end
-struct WolffKernel{W} <: AbstractIsingKernel
-    workspace::W
-end
-struct SwendsenWangKernel{W} <: AbstractIsingKernel
-    workspace::W
-end
-WolffKernel(model::Ising) = WolffKernel(WolffWorkspace(model))
-SwendsenWangKernel(model::Ising) = SwendsenWangKernel(SwendsenWangWorkspace(model))
-
-update_unit(::MetropolisKernel) = "metropolis_sweep"
-update_unit(::WolffKernel) = "wolff_cluster"
-update_unit(::SwendsenWangKernel) = "swendsen_wang_sweep"
-work_unit(::MetropolisKernel) = "accepted_flips"
-work_unit(::WolffKernel) = "flipped_sites"
-work_unit(::SwendsenWangKernel) = "formed_clusters"
-_algorithm(::MetropolisKernel) = :metropolis
-_algorithm(::WolffKernel) = :wolff
-_algorithm(::SwendsenWangKernel) = :swendsen_wang
-
-_runner_step!(rng, model, beta, ::MetropolisKernel) = metropolis!(model, beta; rng=rng)
-_runner_step!(rng, model, beta, k::WolffKernel) = wolff!(model, beta; rng=rng, workspace=k.workspace)
-_runner_step!(rng, model, beta, k::SwendsenWangKernel) = swendsen_wang!(model, beta; rng=rng, workspace=k.workspace)
-
-function _make_kernel(model, algorithm)
-    algorithm === :metropolis && return MetropolisKernel()
-    algorithm === :wolff && return WolffKernel(model)
-    algorithm === :swendsen_wang && return SwendsenWangKernel(model)
-    throw(ArgumentError("unknown kernel"))
-end
+include("runner/specifications.jl")
+include("runner/adapters.jl")
 
 """
-Recoverable state of one independent chain. Paired `energies` and
-`magnetizations` contain total E and signed total M. `measurement_updates`
-contains the total update index including warm-up. `kernel_work` is the sum of
-the kernel's returned diagnostic over the measurement interval, whose meaning
-is given by `work_unit(state.kernel)`; it is not a generic CPU-work measure.
+One recoverable independent chain with concrete specification, model, kernel,
+RNG and observation-table types. `observations(state)` returns paired vectors
+whose names and physical meanings depend on the model. `measurement_updates`
+is the total update count including warm-up; `kernel_work` sums the kernel's
+named diagnostic over the corresponding interval, not elapsed CPU work.
 
-Use `start_run` rather than constructing this type manually. Vectors are kept
-in memory in this initial implementation, so storage is O(retained samples).
+Construct with `start_run`. Storage is O(retained samples). For old Ising code,
+`state.energies` and `state.magnetizations` remain aliases of the same vectors;
+other models use the explicit `observations` interface.
 """
-mutable struct RunState{K<:AbstractIsingKernel,R<:AbstractRNG}
-    spec::RunSpec
-    model::Ising
+mutable struct RunState{S<:AbstractRunSpec,M,K<:AbstractUpdateKernel,R<:AbstractRNG,T<:NamedTuple}
+    spec::S
+    model::M
     kernel::K
     rng::R
     updates::Int
     pending_work::Int
     measurement_updates::Vector{Int}
-    energies::Vector{Float64}
-    magnetizations::Vector{Int}
+    trace::T
     kernel_work::Vector{Int}
     source_sha256::Dict{String,String}
 end
 
-function start_run(spec::RunSpec)
+"""
+    observations(state)
+
+The live, paired observation vectors as a typed NamedTuple. This accessor does
+not copy, sample, or consume RNG state. Names are the physical CSV column names:
+Ising `(total_energy, total_magnetization)`, Potts `(total_energy,
+order_parameter, simplex_squared)`, and random cluster `(occupied_bonds,
+cluster_count, largest_cluster, cluster_size_squared_sum)`. Treat retained
+observations as read-only evidence during a run; copy them for destructive work.
+"""
+observations(state::RunState) = getfield(state, :trace)
+
+# Narrow compatibility adapter: graph counts and Potts order parameters never
+# masquerade as signed Ising magnetizations. Scheduling uses observations().
+function Base.getproperty(state::RunState{RunSpec}, name::Symbol)
+    name === :energies && return getfield(state, :trace).total_energy
+    name === :magnetizations && return getfield(state, :trace).total_magnetization
+    getfield(state, name)
+end
+Base.propertynames(state::RunState{RunSpec}, private::Bool=false) =
+    (fieldnames(typeof(state))..., :energies, :magnetizations)
+
+function start_run(spec::AbstractRunSpec)
     _assert_runner_sources(_LOADED_RUNNER_SOURCES)
     rng = new_rng(spec.seed)
-    model = Ising(spec.L; J=spec.J, init=spec.initial, rng=rng)
-    kernel = _make_kernel(model, spec.algorithm)
-    RunState(spec, model, kernel, rng, 0, 0, Int[], Float64[], Int[], Int[], copy(_LOADED_RUNNER_SOURCES))
+    model = _initialize_model(rng, spec)
+    kernel = _make_kernel(model, spec)
+    RunState(spec, model, kernel, rng, 0, 0, Int[], _empty_observations(spec),
+             Int[], copy(_LOADED_RUNNER_SOURCES))
 end
 
-_total_updates(spec::RunSpec) = spec.burn + spec.samples * spec.stride
+_total_updates(spec::AbstractRunSpec) = spec.burn + spec.samples * spec.stride
 iscomplete(state::RunState) = state.updates == _total_updates(state.spec)
 
 """
     advance!(state, nupdates)
 
-Advance by at most `nupdates` kernel calls, stopping at the scheduled end.
-Pausing inside warm-up or between measurements is supported. RNG state and
-the unfinished interval's work counter remain in `state`. Returns `state`.
+Advance by at most `nupdates` kernel calls and stop at the scheduled end. One
+call is a named sweep/cluster/redraw, defined by `update_unit(state.kernel)`.
+Pauses inside warm-up and inside a measurement interval preserve both the RNG
+and unfinished work count. The first measurement is at `burn + stride`.
 """
 function advance!(state::RunState, nupdates::Integer)
     nupdates >= 0 || throw(ArgumentError("nupdates must be nonnegative"))
     steps = Int(min(nupdates, _total_updates(state.spec) - state.updates))
     spec = state.spec
     for _ in 1:steps
-        work = _runner_step!(state.rng, state.model, spec.beta, state.kernel)
+        work = _runner_step!(state.rng, state.model, spec, state.kernel)
         state.updates += 1
         state.updates <= spec.burn && continue
         state.pending_work += work
         if (state.updates - spec.burn) % spec.stride == 0
+            _record_observations!(observations(state), state.model, spec, state.kernel)
             push!(state.measurement_updates, state.updates)
-            push!(state.energies, energy(state.model))
-            push!(state.magnetizations, magnetization(state.model))
             push!(state.kernel_work, state.pending_work)
             state.pending_work = 0
         end
@@ -150,13 +103,6 @@ end
 
 """Complete the remaining warm-up and production schedule; safe to call twice."""
 run!(state::RunState) = advance!(state, _total_updates(state.spec) - state.updates)
-
-function _spec_record(spec::RunSpec)
-    Dict{String,Any}("L" => spec.L, "beta" => spec.beta, "J" => spec.J,
-        "algorithm" => string(spec.algorithm), "initial" => string(spec.initial),
-        "seed" => spec.seed, "burn" => spec.burn, "samples" => spec.samples,
-        "stride" => spec.stride)
-end
 
 function _runner_source_hashes(; register_dependencies=false)
     root = dirname(@__DIR__)
@@ -184,38 +130,44 @@ function _assert_runner_sources(snapshot)
     nothing
 end
 
-"""Machine-readable provenance; no timing values are inferred by the runner."""
+_trace_columns(state::RunState) =
+    ["measurement", "update", string.(collect(keys(observations(state))))..., "kernel_work"]
+
+"""Machine-readable physical units, schedule, data schema and source provenance."""
 function run_metadata(state::RunState)
     _assert_runner_sources(state.source_sha256)
     Dict{String,Any}("schema_version" => RUN_SCHEMA_VERSION,
         "julia_version" => string(VERSION), "platform" => string(Sys.MACHINE),
-        "rng_type" => string(typeof(state.rng)), "model" => "Ising",
-        "boundary" => "periodic square", "units" => "kB=1; total E; signed total M",
+        "rng_type" => string(typeof(state.rng)), "model" => _model_name(state.spec),
+        "boundary" => _boundary(state.spec), "units" => _units(state.spec),
+        "trace_columns" => _trace_columns(state),
+        "observable_units" => _observable_units(state.spec),
         "update_unit" => update_unit(state.kernel), "work_unit" => work_unit(state.kernel),
         "work_aggregation" => "sum over each measurement interval; not elapsed CPU work",
-        "updates_completed" => state.updates, "samples_retained" => length(state.energies),
+        "updates_completed" => state.updates,
+        "samples_retained" => length(state.measurement_updates),
         "complete" => iscomplete(state), "config" => _spec_record(state.spec),
         "source_sha256" => copy(state.source_sha256))
 end
 
 function _validate_run_state(state::RunState)
-    spec = state.spec
+    spec, trace = state.spec, observations(state)
     0 <= state.updates <= _total_updates(spec) || throw(ArgumentError("invalid update counter"))
     n = max(0, state.updates - spec.burn) ÷ spec.stride
-    all(v -> length(v) == n, (state.measurement_updates, state.energies,
-                              state.magnetizations, state.kernel_work)) || throw(ArgumentError("inconsistent retained traces"))
+    typeof(trace) == typeof(_empty_observations(spec)) || throw(ArgumentError("observation table/model mismatch"))
+    all(v -> length(v) == n, values(trace)) && length(state.measurement_updates) == n &&
+        length(state.kernel_work) == n || throw(ArgumentError("inconsistent retained traces"))
     state.measurement_updates == [spec.burn + i*spec.stride for i in 1:n] || throw(ArgumentError("invalid measurement clock"))
-    state.model.Lx == state.model.Ly == spec.L && state.model.J == spec.J || throw(ArgumentError("model/configuration mismatch"))
-    length(state.model.spins) == spec.L^2 && all(s -> s == -1 || s == 1, state.model.spins) || throw(ArgumentError("invalid Ising state"))
-    _algorithm(state.kernel) == spec.algorithm || throw(ArgumentError("kernel/configuration mismatch"))
-    if state.kernel isa Union{WolffKernel,SwendsenWangKernel}
-        _check_workspace(state.kernel.workspace, state.model)
-    end
-    state.pending_work >= 0 && all(>=(0), state.kernel_work) || throw(ArgumentError("invalid work counter"))
-    all(isfinite, state.energies) || throw(ArgumentError("nonfinite energy trace"))
-    all(m -> abs(m) <= spec.L^2 && iseven(m + spec.L^2), state.magnetizations) || throw(ArgumentError("invalid magnetization trace"))
-    if state.updates <= spec.burn || (state.updates - spec.burn) % spec.stride == 0
-        state.pending_work == 0 || throw(ArgumentError("unexpected unfinished interval"))
+    _validate_model(state.model, spec)
+    _validate_kernel(state.kernel, state.model, spec)
+    _validate_observations(trace, spec)
+    maximum_work = _maximum_work(state.model)
+    all(w -> 0 <= w <= maximum_work*spec.stride, state.kernel_work) || throw(ArgumentError("invalid retained work counter"))
+    interval_updates = state.updates <= spec.burn ? 0 : (state.updates-spec.burn) % spec.stride
+    0 <= state.pending_work <= maximum_work*interval_updates || throw(ArgumentError("invalid unfinished interval work"))
+    if state.kernel isa IndependentBondKernel
+        all(==(maximum_work*spec.stride), state.kernel_work) || throw(ArgumentError("independent redraw work must equal the number of resampled edges"))
+        state.pending_work == maximum_work*interval_updates || throw(ArgumentError("incomplete independent redraw work counter"))
     end
     state
 end
@@ -223,10 +175,13 @@ end
 """
     save_checkpoint(path, state)
 
-Atomically replace a local checkpoint in the destination directory. The header
-records schema, Julia version, source fingerprints, RNG type and full run
-specification; the serialized state is protected by SHA-256 against corruption.
-This format is for trusted, same-environment restart, not portable data exchange.
+Atomically replace a local checkpoint via a same-directory temporary file and
+rename. The TOML header records schema, Julia/platform, model/configuration,
+physical column units, source fingerprints and RNG type. A payload SHA-256
+check detects corruption before native deserialization.
+
+This format is only for trusted, matching-environment restart, not portable
+exchange or untrusted input. Schema 1 checkpoints require the old source tree.
 """
 function save_checkpoint(path::AbstractString, state::RunState)
     _validate_run_state(state)
@@ -246,8 +201,6 @@ function save_checkpoint(path::AbstractString, state::RunState)
         write(io, header_text)
         write(io, payload)
         close(io)
-        # rename replaces the same-directory destination atomically on the
-        # supported local filesystems. No delete-then-move gap is introduced.
         Base.Filesystem.rename(temporary, abspath(path))
     catch
         isopen(io) && close(io)
@@ -260,15 +213,16 @@ end
 """
     load_checkpoint(path; expected_spec=nothing)
 
-Restore a **trusted local** checkpoint. Never load untrusted files: Julia
-Serialization is not a safe untrusted-data format. Before deserializing, reject
-an incompatible schema, Julia version, source tree, RNG type, expected run
-specification, or payload checksum. No implicit version migration is performed.
+Restore a trusted local checkpoint in the matching Julia/code/platform
+context. The header, expected model specification and payload checksum are
+checked before deserialization; the restored model, observation schema,
+workspace and counters are then validated. No implicit migration is performed.
+Never load untrusted Julia Serialization data.
 """
-function load_checkpoint(path::AbstractString; expected_spec::Union{Nothing,RunSpec}=nothing)
+function load_checkpoint(path::AbstractString; expected_spec::Union{Nothing,AbstractRunSpec}=nothing)
     _assert_runner_sources(_LOADED_RUNNER_SOURCES)
     header, payload = open(path, "r") do io
-        readline(io) == _CHECKPOINT_MAGIC || throw(ArgumentError("unrecognized checkpoint format"))
+        readline(io) == _CHECKPOINT_MAGIC || throw(ArgumentError("unrecognized or incompatible checkpoint format"))
         header_length = tryparse(Int, readline(io))
         header_length !== nothing && 0 < header_length <= 1_048_576 || throw(ArgumentError("invalid checkpoint header length"))
         raw_header = read(io, header_length)
@@ -280,47 +234,47 @@ function load_checkpoint(path::AbstractString; expected_spec::Union{Nothing,RunS
     get(header, "platform", nothing) == string(Sys.MACHINE) || throw(ArgumentError("incompatible checkpoint platform"))
     get(header, "source_sha256", nothing) == _runner_source_hashes() || throw(ArgumentError("checkpoint source/configuration code differs"))
     get(header, "rng_type", nothing) == string(typeof(new_rng(0))) || throw(ArgumentError("incompatible RNG type"))
-    expected_spec !== nothing && get(header, "config", nothing) != _spec_record(expected_spec) && throw(ArgumentError("checkpoint run specification differs"))
+    if expected_spec !== nothing
+        get(header, "model", nothing) == _model_name(expected_spec) &&
+            get(header, "config", nothing) == _spec_record(expected_spec) || throw(ArgumentError("checkpoint run specification differs"))
+    end
     get(header, "payload_sha256", nothing) == bytes2hex(sha256(payload)) || throw(ArgumentError("checkpoint payload checksum mismatch"))
     state = deserialize(IOBuffer(payload))
     state isa RunState || throw(ArgumentError("checkpoint does not contain a RunState"))
-    _spec_record(state.spec) == get(header, "config", nothing) || throw(ArgumentError("checkpoint header/state mismatch"))
-    string(typeof(state.rng)) == header["rng_type"] || throw(ArgumentError("checkpoint RNG/header mismatch"))
-    state.source_sha256 == header["source_sha256"] || throw(ArgumentError("checkpoint source/header mismatch"))
-    for (key, actual) in (("updates_completed", state.updates),
-                          ("samples_retained", length(state.energies)),
-                          ("complete", iscomplete(state)),
-                          ("update_unit", update_unit(state.kernel)),
-                          ("work_unit", work_unit(state.kernel)))
-        get(header, key, nothing) == actual || throw(ArgumentError("checkpoint $key/header mismatch"))
-    end
     _validate_run_state(state)
+    actual = run_metadata(state)
+    for key in keys(actual)
+        get(header, key, nothing) == actual[key] || throw(ArgumentError("checkpoint $key/header mismatch"))
+    end
+    state
 end
 
 """
     export_run(directory, state)
 
-Write portable `trace.csv` and `metadata.toml` into a new or empty directory.
-Partial runs are allowed and explicitly marked. Existing files are never
-overwritten. This data export is independent of the restart checkpoint.
+Write portable `trace.csv` and `metadata.toml` to a new or empty directory.
+Columns are `measurement,update`, the named model observations, then
+`kernel_work`. The Ising column names/order remain compatible with schema 1;
+Potts and random-cluster exports explicitly use their own physical quantities.
+Partial runs are allowed and marked. Existing files are never overwritten.
 """
 function export_run(directory::AbstractString, state::RunState)
     _validate_run_state(state)
-    _assert_runner_sources(state.source_sha256)
+    metadata = run_metadata(state)
     if ispath(directory)
         isdir(directory) && isempty(readdir(directory)) || throw(ArgumentError("output must be a new or empty directory"))
     else
         mkpath(directory)
     end
     trace_path = joinpath(directory, "trace.csv")
+    columns = values(observations(state))
     open(trace_path, "w") do io
-        println(io, "measurement,update,total_energy,total_magnetization,kernel_work")
-        for i in eachindex(state.energies)
-            println(io, join((i, state.measurement_updates[i], state.energies[i],
-                             state.magnetizations[i], state.kernel_work[i]), ','))
+        println(io, join(_trace_columns(state), ','))
+        for i in eachindex(state.measurement_updates)
+            values_at_i = map(column -> column[i], columns)
+            println(io, join((i, state.measurement_updates[i], values_at_i..., state.kernel_work[i]), ','))
         end
     end
-    metadata = run_metadata(state)
     metadata["trace_sha256"] = bytes2hex(sha256(read(trace_path)))
     open(io -> TOML.print(io, metadata), joinpath(directory, "metadata.toml"), "w")
     directory

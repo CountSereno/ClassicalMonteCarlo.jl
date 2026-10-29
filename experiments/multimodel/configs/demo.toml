@@ -1,0 +1,15 @@
+name = "multimodel-demo"
+seed = 2026103001
+burn = 4096
+samples = 16384
+stride = 1
+block_sizes = [128, 512, 2048]
+maxlag = 512
+exact_L = 3
+exact_beta = 0.7
+potts_q = 3
+potts_algorithms = ["metropolis", "wolff", "swendsen_wang"]
+potts_initials = ["random", "ordered", "random", "ordered"]
+rc_q_values = [1.0, 1.5, 3.0]
+rc_initials = ["empty", "full", "random", "random"]
+critical_sizes = [4, 8]

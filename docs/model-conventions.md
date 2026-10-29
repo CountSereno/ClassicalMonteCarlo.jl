@@ -36,3 +36,41 @@ Wang–Landau 的 `bin` 需将所有可达能量或其他宏观变量映射到�
 - U₄ = 1−⟨M⁴⟩/(3⟨M²⟩²)。
 
 各字段提供 `raw`、偏差修正后的 `estimate`、`bias` 和 `stderr`。偏差修正量在短样本下可能超出物理区间；块长和热化需要独立诊断。新增实验保留多个块长、独立初态、原始时间序列和警告，见 [实验说明](../experiments/README.md)。
+
+## Potts 与随机团簇的配对统计
+
+`potts_observables(E, order; beta, nsites, blocksize, simplex_squared=nothing)`
+使用总能量 E 与无量纲最大颜色序参量
+`order=(q max_a N_a/N−1)/(q−1)`。返回的定义是：
+
+- `energy_density` = ⟨E⟩/N；`order_parameter` = ⟨order⟩；
+- `heat_capacity` = β² Var(E)/N；
+- `order_parameter_fluctuation` = βN Var(order)，是最大颜色序参量的涨落代理量，不能当作某个固定磁场方向的线性响应磁化率；
+- `moment_ratio` = ⟨order⁴⟩/⟨order²⟩²，不套用 Ising 标量 Binder 累积量的系数；若完整样本或任一删块样本的 ⟨order²⟩ 为零，该比值未定义，函数明确报错。
+
+可选的 `simplex_squared` 是 Potts simplex 向量序参量的平方：
+`(q Σ_a N_a²/N²−1)/(q−1)`，其平均值作为 `simplex_second_moment` 返回。
+对于 q>2，它与最大颜色序参量的平方不同。该序列与 E、order 使用完全相同的时间块，
+不会被单独打乱或重采样。能量和序参量方差先中心化再计算，减少能量零点较大时的消减误差。
+
+`random_cluster_observables(b,k,cmax,s2; nedges,nvertices,blocksize)`
+接受同一次测量的占据键数 b、连通分量数 k、最大分量大小 cmax，以及
+`s2=Σ_C |C|²`。所有孤立点与最大团簇都计入。记总边数为 m、顶点数为 N，则：
+
+- `bond_density` = ⟨b⟩/m；`cluster_density` = ⟨k⟩/N；
+- `largest_cluster_fraction` = ⟨cmax⟩/N；
+- `mean_cluster_size` = ⟨s2⟩/N，是均匀选取一个顶点后，它所属团簇的平均大小，包含最大团簇；
+- `bond_variance_per_edge` = Var(b)/m，是几何涨落量，未自动解释为比热。
+
+该统计接口要求 m>0，因为无边图的键密度没有定义。p=0 或 p=1 下的常量观测序列可以分析，
+给出零样本方差；零方差不代表任意系综下都已充分采样。以上接口返回与 Ising 统计一致的
+`raw/estimate/bias/stderr` 和分块元数据，使用共同的配对矩删块计算，保持非线性量误差中的协方差。
+
+零场铁磁整数 q Potts 与 FK 随机团簇可用 `p=1−exp(−βJ)` 联系。在相同有限图上，p>0 时有
+`⟨E_Potts⟩/N = −J⟨b⟩/(pN)`，以及
+`⟨simplex_squared⟩ = ⟨s2⟩/N²`。第二个关系来自逐簇独立均匀着色，
+是对系综平均的等式，不能要求两条独立轨迹逐个构型相等。非整数 q 的随机团簇本身是合法概率模型，
+但不能因此声称它具有整数颜色自旋表示。p=0 时能量关系不能直接除以 p。
+
+[多模型实验](../experiments/multimodel/README.md) 用独立颜色枚举与 BFS 键子集枚举检查这些关系；
+精确枚举不调用生产代码中的能量或并查集函数。

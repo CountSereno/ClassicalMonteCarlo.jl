@@ -1,0 +1,64 @@
+
+[random_cluster."3.0"]
+nvertices = 9
+mean_cluster_size = 4.12177946376817
+model = "RandomCluster"
+log_partition = 2.9283770161725764
+states = 262144
+bond_density = 0.3176038641092205
+largest_cluster_fraction = 0.5746271927359373
+nedges = 18
+cluster_density = 0.4450263089482012
+mean_clusters = 4.005236780533811
+bond_variance_per_edge = 0.3646992583972625
+q = 3.0
+p = 0.5034146962085905
+mean_bonds = 5.716869553965969
+
+[random_cluster."1.5"]
+nvertices = 9
+mean_cluster_size = 6.507962662117241
+model = "RandomCluster"
+log_partition = 0.8120025547770382
+states = 262144
+bond_density = 0.4563347583638543
+largest_cluster_fraction = 0.8017150204211981
+nedges = 18
+cluster_density = 0.25400804097818724
+mean_clusters = 2.2860723688036853
+bond_variance_per_edge = 0.3123297302676277
+q = 1.5
+p = 0.5034146962085905
+mean_bonds = 8.214025650549377
+
+[random_cluster."1.0"]
+nvertices = 9
+mean_cluster_size = 7.41663129965136
+model = "RandomCluster"
+log_partition = 0.0
+states = 262144
+bond_density = 0.5034146962085906
+largest_cluster_fraction = 0.8787932332356319
+nedges = 18
+cluster_density = 0.1963401208939728
+mean_clusters = 1.7670610880457551
+bond_variance_per_edge = 0.24998833984980312
+q = 1.0
+p = 0.5034146962085905
+mean_bonds = 9.06146453175463
+[potts]
+order_parameter = 0.592670723678886
+nvertices = 9
+simplex_second_moment = 0.45797549597424153
+model = "Potts"
+log_partition = 15.528377016172575
+moment_ratio = 1.5996820037044428
+L = 3
+states = 19683
+beta = 0.7
+nedges = 18
+J = 1.0
+heat_capacity = 0.8003990312081887
+q = 3
+energy_density = -1.261798141775429
+order_parameter_fluctuation = 0.4823897036634745

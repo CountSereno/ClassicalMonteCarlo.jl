@@ -1,10 +1,11 @@
-# Core design and first implementation increment
+# Core design: portable kernels and a shared model runner
 
-The first implementation increment follows one complete path: a portable
-acceptance rule, existing model updates, an explicit simulation clock, recoverable
-Ising runs, offline analysis and Julia figures. It preserves the current model
-constructors and update APIs. The larger architecture in [the research plan](research-plan.md)
-is a development direction; it is not all implemented in this increment.
+The package connects portable weight/acceptance rules, model updates, an explicit
+simulation clock, recoverable runs, offline analysis and Julia figures. Ising,
+Potts and random-cluster models share execution and persistence while keeping
+their physical parameters and observations distinct. Existing model/update APIs
+and Ising observation aliases remain usable. The larger architecture in
+[the research plan](research-plan.md) remains a development direction.
 
 ## Separate numerical decisions from physical state
 
@@ -40,6 +41,15 @@ Wang–Landau deliberately draws one value each proposal, including deterministi
 acceptance, matching that algorithm's existing RNG-consumption convention.
 Using the same acceptance filter does not make their ensembles or clocks the same.
 
+For Sweeny, `sweeny_logratio(occupied, endpoints_disconnected, p, q)` is a pure
+weight calculation. Connectivity is determined with the selected edge removed,
+so it distinguishes deleting a bridge from deleting an edge on a cycle. The
+reference update first queries connectivity, then computes the ratio, applies
+the lazy proposal and acceptance decision, and finally toggles the occupation.
+This keeps graph traversal, probability and state mutation independently
+reviewable. The small disjoint-set primitives in `src/disjoint_sets.jl` contain
+no model or RNG dependency and are shared by SW and bond connectivity.
+
 ## Reuse scratch memory without hiding model updates
 
 `WolffWorkspace(model)` contains a visited mask and a bounded cluster queue.
@@ -61,6 +71,20 @@ including repeated calls and zero coupling. `benchmarks/workspaces.jl` measures
 allocations after compilation; it does not infer a wall-clock speedup from fewer
 allocated bytes.
 
+`BondWorkspace(graph_or_state)` similarly owns reusable connectivity arrays.
+`cluster_statistics` obtains all four geometric observations from one component
+calculation and consumes no RNG values. Measurements may reuse the kernel's
+scratch arrays because each later query resets them. No connectivity is assumed
+to survive a bond deletion. A Sweeny sweep still rebuilds connectivity for each
+attempt, roughly O(m*(n+m)) work apart from union-find factors; workspace reuse
+does not change that scaling.
+
+The separate [bond allocation probe](../benchmarks/bonds.jl) reports allocation
+for updates and measurements independently. Its measured [L=8 result](../benchmarks/results/bond_allocations.csv)
+on Julia 1.12.6 uses 1,000 sweeps: fresh per-sweep scratch allocated 1,152,000 B,
+while reused sweeps and reused geometric measurements each allocated 0 measured
+heap bytes. Production traces and checkpoint storage still allocate memory.
+
 The recorded [allocation probe](../benchmarks/results/workspace_allocations.csv)
 on Julia 1.12.6 used L=16 and 1,000 updates after warm-up. Reused workspaces
 allocated 0 measured heap bytes for both Ising and q=3 Potts, with both cluster
@@ -74,20 +98,32 @@ julia --startup-file=no --project=. benchmarks/workspaces.jl
 
 ## Keep execution and inference separate
 
-The [runner](runner.md) intentionally implements one well-defined Ising workflow.
-`RunSpec` validates the physical settings and schedule; `RunState` owns the model,
-RNG, kernel workspace, update count, unfinished measurement interval and paired
-time series. `advance!` pauses at any update boundary; `run!` completes the schedule.
-Kernels do not write files or calculate error bars.
+The [runner](runner.md) uses one configuration type per model: `RunSpec` for
+Ising, `PottsRunSpec` and `RandomClusterRunSpec`. The shared `RunState` has concrete
+types for specification, model, kernel, RNG and observation table. Its typed
+NamedTuple contains only that model's vectors; it has no irrelevant optional
+beta, energy or magnetization placeholders. `observations(state)` exposes these
+paired vectors; the old Ising `energies`/`magnetizations` properties are narrow
+compatibility aliases.
 
-One runner update is a Metropolis sweep, a Wolff cluster, or an SW sweep.
-The meaning of the returned work counter is recorded separately: accepted flips,
-flipped sites, or formed clusters. It is never treated as a common CPU-work unit.
+Model adapters construct configurations, invoke kernels, append measurements
+and validate physical bounds. The shared loop only manages the update count,
+warm-up, measurement interval and unfinished work count. `advance!` pauses at
+any update boundary; `run!` completes the schedule. Kernels do not write files
+or calculate error bars. `src/model_observables.jl` operates on saved numeric
+vectors without any model construction or random sampling.
+
+One update is a Metropolis sweep, Wolff cluster, SW sweep, lazy Sweeny sweep or
+whole-graph independent redraw. Its work counter has a separate named meaning:
+accepted flips, flipped sites, formed clusters, accepted bond flips or resampled
+bonds. These are never treated as a common CPU-work unit.
 
 Portable CSV/TOML exports support independent analysis. A checksum-guarded local
 checkpoint preserves the in-memory state for trusted, same-environment restart.
 Restoration rejects incompatible versions/configuration/code; it is not a
-general cross-version interchange format. This initial runner keeps traces in
+general cross-version interchange format. Schema 2 explicitly rejects schema 1
+native checkpoints; their original source environment is needed for restart.
+Portable historical CSV/TOML datasets remain readable. The runner keeps traces in
 memory, O(samples), and does not yet implement streaming, MPI, arbitrary models,
 or a generic observable plugin system.
 
@@ -99,6 +135,10 @@ live under `experiments/plotting`, separate from the simulation package. The
 analysis tables and figures in separate steps. Prior experiment artifacts remain
 historical evidence for their recorded source hashes; a changed source tree is
 not expected to reproduce an old checkpoint without the original environment.
+The [multi-model experiments](../experiments/multimodel/README.md) add independent
+enumeration and finite-volume FK energy and simplex-moment identities. They do
+not equate maximum-colour order with the largest FK cluster or relabel a
+geometric variance as a spin heat capacity.
 
 When extending a kernel, first add its mathematical ratio, then a readable
 reference transition, exact/invariant tests, and only then an optimized path.

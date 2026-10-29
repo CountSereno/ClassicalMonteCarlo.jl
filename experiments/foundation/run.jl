@@ -3,9 +3,13 @@ using ClassicalMonteCarlo, TOML, SHA, Dates
 
 function source_hashes()
     root = normpath(joinpath(@__DIR__, "../.."))
-    paths = vcat([joinpath("src", f) for f in readdir(joinpath(root,"src")) if endswith(f,".jl")],
-                 ["Project.toml"],
-                 [joinpath("experiments","foundation",f) for f in ("run.jl","exact.jl")])
+    paths = ["Project.toml",
+             joinpath("experiments","foundation","run.jl"),
+             joinpath("experiments","foundation","exact.jl")]
+    for (directory, _, files) in walkdir(joinpath(root,"src"))
+        append!(paths, [relpath(joinpath(directory,f),root)
+                        for f in files if endswith(f,".jl")])
+    end
     Dict(p=>bytes2hex(sha256(read(joinpath(root,p)))) for p in paths)
 end
 
