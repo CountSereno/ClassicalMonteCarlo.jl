@@ -1,0 +1,58 @@
+{
+  "runs": 42,
+  "measurements": 336000,
+  "production_seconds": 2.1600880399999998,
+  "warnings": [
+    {
+      "run_id": "run_005",
+      "experiment": "benchmark",
+      "L": 16.0,
+      "T": 2.269185314213022,
+      "algorithm": "metropolis",
+      "initial": "random",
+      "tau_E": 14.866866319915694,
+      "tau_absM": 51.729906621939385,
+      "block_warning": "true",
+      "window_truncated": "false"
+    },
+    {
+      "run_id": "run_006",
+      "experiment": "benchmark",
+      "L": 16.0,
+      "T": 2.269185314213022,
+      "algorithm": "metropolis",
+      "initial": "up",
+      "tau_E": 19.308505121699685,
+      "tau_absM": 36.91236022200052,
+      "block_warning": "true",
+      "window_truncated": "false"
+    },
+    {
+      "run_id": "run_009",
+      "experiment": "benchmark",
+      "L": 24.0,
+      "T": 2.269185314213022,
+      "algorithm": "metropolis",
+      "initial": "random",
+      "tau_E": 33.47077788558976,
+      "tau_absM": 66.97332294225575,
+      "block_warning": "true",
+      "window_truncated": "false"
+    },
+    {
+      "run_id": "run_010",
+      "experiment": "benchmark",
+      "L": 24.0,
+      "T": 2.269185314213022,
+      "algorithm": "metropolis",
+      "initial": "up",
+      "tau_E": 36.4334569741899,
+      "tau_absM": 74.34203448035034,
+      "block_warning": "true",
+      "window_truncated": "false"
+    }
+  ],
+  "python_version": "3.12.14",
+  "numpy_version": "2.3.5",
+  "matplotlib_version": "3.11.1"
+}

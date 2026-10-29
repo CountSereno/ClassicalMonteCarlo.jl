@@ -48,6 +48,40 @@ using ClassicalMonteCarlo
     end
 end
 
+@testset "cluster workspaces preserve updates and reset scratch" begin
+    for make in (rng -> Ising(3, 4; rng), rng -> Potts(3, 4, 3; rng))
+        for (update!, make_workspace) in ((wolff!, WolffWorkspace),
+                                          (swendsen_wang!, SwendsenWangWorkspace))
+            cached = make(MersenneTwister(913))
+            fresh = deepcopy(cached)
+            rc, rf = MersenneTwister(27), MersenneTwister(27)
+            workspace = make_workspace(cached)
+            # Deliberately dirty scratch before reuse. It must not become part
+            # of the physical Markov state or affect the random-number order.
+            if workspace isa WolffWorkspace
+                fill!(workspace.visited, true)
+                fill!(workspace.queue, 0)
+            else
+                fill!(workspace.parent, -1)
+                fill!(workspace.sizes, -1)
+                fill!(workspace.colours, 0)
+            end
+            for beta in (0.0, 0.3, 0.8, 0.0, 0.5), _ in 1:20
+                @test update!(cached, beta; rng=rc, workspace) == update!(fresh, beta; rng=rf)
+                @test cached.spins == fresh.spins
+            end
+            @test rand(rc) == rand(rf)
+        end
+    end
+    @test_throws ArgumentError wolff!(Ising(4), 0.4; workspace=WolffWorkspace(Ising(3)))
+    @test_throws ArgumentError swendsen_wang!(Ising(4), 0.4; workspace=SwendsenWangWorkspace(Ising(3)))
+    @test_throws ArgumentError swendsen_wang!(Potts(3, 3), 0.4; workspace=SwendsenWangWorkspace(Ising(3)))
+    huge = big"1e10000"
+    @test_throws ArgumentError Ising(3; J=huge)
+    @test_throws ArgumentError metropolis!(Ising(3), huge)
+    @test_throws ArgumentError wolff!(Ising(3), huge)
+end
+
 # Exhaustive 3×3 equilibrium means test the kernels against the distribution,
 # not against another implementation of the updates. Fixed seeds and a generous
 # tolerance reduce false failures while still catching wrong bond probabilities.

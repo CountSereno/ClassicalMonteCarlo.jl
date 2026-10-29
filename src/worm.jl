@@ -51,8 +51,10 @@ function worm_step!(rng::AbstractRNG, w::IsingWorm)
         next = mod(row-1, L)*L + col + 1
         edge = 2*next
     end
-    # Adding a bond costs a factor x; removing one has acceptance 1.
-    if w.bonds[edge] || rand(rng) < w.x
+    # The target is x^b. Keep its log weight ratio separate from the decision
+    # and from state mutation, just as in the spin and random-cluster kernels.
+    logratio = w.bonds[edge] ? -log(w.x) : log(w.x)
+    if metropolis_accept(rng, logratio)
         w.bonds[edge] = !w.bonds[edge]
         w.head = next
         return true

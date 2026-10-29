@@ -1,4 +1,5 @@
-export Ising, Potts, energy, magnetization, metropolis!, wolff!, swendsen_wang!
+export Ising, Potts, energy, magnetization, metropolis!, wolff!, swendsen_wang!,
+       WolffWorkspace, SwendsenWangWorkspace
 
 """
     Ising(Lx, Ly=Lx; J=1, init=:random, rng=Random.default_rng())
@@ -36,7 +37,9 @@ function _spin_parameters(Lx::Integer, Ly::Integer, J::Real)
     isfinite(J) || throw(ArgumentError("J must be finite"))
     lx, ly = Int(Lx), Int(Ly)
     Base.checked_mul(lx, ly)
-    lx, ly, Float64(J)
+    j = Float64(J)
+    isfinite(j) || throw(ArgumentError("J must have a finite Float64 representation"))
+    lx, ly, j
 end
 
 function Ising(Lx::Integer, Ly::Integer=Lx; J::Real=1, init::Symbol=:random,
@@ -109,7 +112,9 @@ end
 end
 function _check_beta(beta::Real)
     isfinite(beta) && beta >= 0 || throw(ArgumentError("beta must be finite and nonnegative"))
-    Float64(beta)
+    b = Float64(beta)
+    isfinite(b) || throw(ArgumentError("beta must have a finite Float64 representation"))
+    b
 end
 
 """
@@ -132,7 +137,7 @@ function metropolis!(m::Union{Ising,Potts}, beta::Real;
         i = rand(rng, eachindex(m.spins))
         new = _proposal(m, i, rng)
         dE = _delta_energy(m, i, new)
-        if dE <= 0 || rand(rng) < exp(-b * dE)
+        if metropolis_accept(rng, metropolis_logratio(b, dE))
             m.spins[i] = new
             accepted += 1
         end
@@ -156,15 +161,43 @@ function _cluster_beta(m::Union{Ising,Potts}, beta::Real)
 end
 
 """
-    wolff!(model, beta; rng=Random.default_rng())
+    WolffWorkspace(model)
+
+Reusable storage for one Wolff chain: a visited mask and a bounded FIFO queue.
+The storage holds no physical state and is reset before cluster construction. It may be reused
+for any Ising/Potts lattice with the same number of sites, but must not be shared
+between concurrent updates. Passing it explicitly avoids per-cluster arrays.
+"""
+struct WolffWorkspace
+    visited::BitVector
+    queue::Vector{Int}
+end
+function WolffWorkspace(m::Union{Ising,Potts})
+    n = length(m.spins)
+    WolffWorkspace(falses(n), Vector{Int}(undef, n))
+end
+
+function _check_workspace(workspace::WolffWorkspace, m::Union{Ising,Potts})
+    n = length(m.spins)
+    length(workspace.visited) == n && length(workspace.queue) == n ||
+        throw(ArgumentError("Wolff workspace must have one visited flag and queue slot per site"))
+    nothing
+end
+
+"""
+    wolff!(model, beta; rng=Random.default_rng(), workspace=WolffWorkspace(model))
 
 Flip one Wolff cluster and return its size. Cluster updates require J >= 0.
 One call is one cluster, not one lattice sweep. At zero coupling for Ising
 and q=2 Potts, a probability-1/2 no-op is used to avoid a periodic chain;
-the function returns 0 on that no-op.
+the function returns 0 on that no-op. Reuse a workspace across calls to avoid
+allocating the visited mask and cluster queue for every update.
 """
-function wolff!(m::Union{Ising,Potts}, beta::Real; rng::AbstractRNG=Random.default_rng())
+function wolff!(m::Union{Ising,Potts}, beta::Real;
+                rng::AbstractRNG=Random.default_rng(),
+                workspace::WolffWorkspace=WolffWorkspace(m))
     b = _cluster_beta(m, beta)
+    _check_workspace(workspace, m)
     p = _cluster_probability(m, b)
     if b * m.J == 0 && (m isa Ising || m.q == 2) && rand(rng, Bool)
         return 0
@@ -172,24 +205,27 @@ function wolff!(m::Union{Ising,Potts}, beta::Real; rng::AbstractRNG=Random.defau
     seed = rand(rng, eachindex(m.spins))
     old = m.spins[seed]
     new = _other_colour(m, old, rng)
-    visited = falses(length(m.spins))
+    visited, queue = workspace.visited, workspace.queue
+    fill!(visited, false)
     visited[seed] = true
-    cluster = Int[seed]
+    queue[1] = seed
+    cluster_size = 1
     head = 1
-    while head <= length(cluster)
-        i = cluster[head]
+    while head <= cluster_size
+        i = queue[head]
         for j in _neighbours(m, i)
             if !visited[j] && m.spins[j] == old && rand(rng) < p
                 visited[j] = true
-                push!(cluster, j)
+                cluster_size += 1
+                queue[cluster_size] = j
             end
         end
         head += 1
     end
-    for i in cluster
-        m.spins[i] = new
+    for k in 1:cluster_size
+        m.spins[queue[k]] = new
     end
-    length(cluster)
+    cluster_size
 end
 
 @inline function _findroot!(parent, i)
@@ -212,17 +248,51 @@ end
 end
 
 """
-    swendsen_wang!(model, beta; rng=Random.default_rng())
+    SwendsenWangWorkspace(model)
+
+Reusable union-find and recolouring arrays for one SW chain. Each update resets
+the disjoint sets and assigns new root colours. The number of sites and spin
+element type must match the model. Do not share mutable workspace arrays across
+concurrent chains.
+"""
+struct SwendsenWangWorkspace{T<:Integer}
+    parent::Vector{Int}
+    sizes::Vector{Int}
+    colours::Vector{T}
+end
+function SwendsenWangWorkspace(m::Union{Ising,Potts})
+    n = length(m.spins)
+    SwendsenWangWorkspace(collect(1:n), ones(Int, n), similar(m.spins))
+end
+
+function _check_workspace(workspace::SwendsenWangWorkspace, m::Union{Ising,Potts})
+    n = length(m.spins)
+    length(workspace.parent) == n && length(workspace.sizes) == n &&
+        length(workspace.colours) == n || throw(ArgumentError("SW workspace arrays must match the number of sites"))
+    eltype(workspace.colours) === eltype(m.spins) ||
+        throw(ArgumentError("SW workspace colour type must match the model spin type"))
+    nothing
+end
+
+"""
+    swendsen_wang!(model, beta; rng=Random.default_rng(), workspace=SwendsenWangWorkspace(model))
 
 One Swendsen–Wang bond-and-recolour sweep; returns the number of clusters.
-Cluster updates require J >= 0.
+Cluster updates require J >= 0. Pass a persistent workspace to reuse all
+union-find and colour arrays without changing the sampling or RNG order.
 """
-function swendsen_wang!(m::Union{Ising,Potts}, beta::Real; rng::AbstractRNG=Random.default_rng())
+function swendsen_wang!(m::Union{Ising,Potts}, beta::Real;
+                       rng::AbstractRNG=Random.default_rng(),
+                       workspace::SwendsenWangWorkspace=SwendsenWangWorkspace(m))
     b = _cluster_beta(m, beta)
+    _check_workspace(workspace, m)
     p = _cluster_probability(m, b)
     n = length(m.spins)
-    parent = collect(1:n)
-    sizes = ones(Int, n)
+    parent, sizes, colours = workspace.parent, workspace.sizes, workspace.colours
+    for i in 1:n
+        parent[i] = i
+        sizes[i] = 1
+    end
     for i in 1:n
         _, right, _, up = _neighbours(m, i)
         for j in (right, up)
@@ -231,7 +301,6 @@ function swendsen_wang!(m::Union{Ising,Potts}, beta::Real; rng::AbstractRNG=Rand
             end
         end
     end
-    colours = similar(m.spins)
     nclusters = 0
     for i in 1:n
         if _findroot!(parent, i) == i

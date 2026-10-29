@@ -1,0 +1,17 @@
+short_block_warnings = 8
+tau_rule = "first nonpositive ACF truncation; positive tail only; not equilibration proof"
+production_seconds = 8.126235748
+large_block_warnings = 0
+julia_version = "1.12.6"
+error_rule = "max(between-chain SEM, quadrature of largest within-chain block-jackknife SE divided by nchains); diagnostic, not calibrated CI"
+measurements = 1572864
+max_exact_discrepancy_over_diagnostic_se = 1.1399627303428927
+acf_truncations = 2
+runs = 48
+
+[source_sha256]
+"experiments/foundation/exact.jl" = "a0fe9366de0e87c4e4fb7d0ae49d0b35e29139e5b670edbf3a5db421b687abd6"
+"experiments/foundation/analyze.jl" = "55855d4c0e25caca4c595b92a0c10cd1f1f86517c76001a1c95ffdb969ae9d78"
+"Project.toml" = "55d7b1cb9bfb7176685acc9e5ab7666e713c620b61b24047ec9bc5458e34e391"
+"experiments/foundation/tables.jl" = "5c40401ad25a4019e3b7c2616f4a8ea3e621194cecdc799501e0c62c487b070c"
+"src/analysis.jl" = "d424059cd02f77f06b69e0cc31bba926fd9596c0bd6f38a2c1f220f8be5c62d4"

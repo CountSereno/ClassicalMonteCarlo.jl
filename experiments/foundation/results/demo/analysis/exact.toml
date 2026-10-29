@@ -1,0 +1,17 @@
+susceptibility = 1.7504069824932484
+abs_magnetization_density = 0.7011670867780786
+heat_capacity = 0.5530533365941317
+susceptibility_abs = 0.2755011317506754
+binder = 0.5300576227160332
+L = 3
+states = 512
+energy_density = -1.1548857999854445
+beta = 0.3333333333333333
+
+[density_of_states]
+-18 = 2
+-6 = 48
+2 = 144
+6 = 102
+-10 = 18
+-2 = 198

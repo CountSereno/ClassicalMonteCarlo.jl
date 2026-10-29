@@ -1,5 +1,5 @@
 export block_means, jackknife, autocorrelation, integrated_autocorrelation_time,
-       finite_size_fit
+       finite_size_fit, ising_observables
 
 # These routines deliberately keep the statistical assumptions explicit. They
 # operate on stationary post-equilibration time series, not raw warmup data.
@@ -7,6 +7,14 @@ function _finite_series(x::AbstractVector{<:Real}, min_length::Int=1)
     length(x) >= min_length || throw(ArgumentError("at least $min_length observations are required"))
     all(isfinite, x) || throw(ArgumentError("observations must be finite"))
     return Float64.(x)
+end
+
+function _jackknife_result(raw::Real, replicas::AbstractVector{<:Real})
+    nb = length(replicas)
+    avg = mean(replicas)
+    bias = (nb-1)*(avg-raw)
+    stderr = sqrt((nb-1)/nb * sum((z-avg)^2 for z in replicas))
+    return (estimate=raw-bias, stderr=stderr, bias=bias, raw=Float64(raw))
 end
 
 """
@@ -48,10 +56,92 @@ function jackknife(f, x::AbstractVector{<:Real}; blocksize::Integer=1)
         stop = k*blocksize
         replicas[k] = scalar(f(vcat(@view(v[1:start-1]), @view(v[stop+1:end]))))
     end
-    avg = mean(replicas)
-    bias = (nb-1)*(avg-raw)
-    stderr = sqrt((nb-1)/nb * sum((z-avg)^2 for z in replicas))
-    return (estimate=raw-bias, stderr=stderr, bias=bias, raw=raw)
+    return _jackknife_result(raw, replicas)
+end
+
+"""
+    ising_observables(E, M; beta, nsites, blocksize=1)
+
+Estimate zero-field Ising thermodynamic observables from paired stationary
+time series of **total** energy `E` and **signed total** magnetization `M`.
+The six result fields are `energy_density`, `abs_magnetization_density`,
+`heat_capacity`, `susceptibility`, `susceptibility_abs`, and `binder`. Each is
+`(estimate, stderr, bias, raw)` with a delete-contiguous-block jackknife;
+`estimate = raw - bias`. Metadata `n_samples`, `n_blocks`, and `blocksize`
+record the data actually used. No observations are silently discarded.
+
+With `N=nsites` and k_B=1, the raw definitions are
+`<E>/N`, `<|M|>/N`, `beta^2*(<E^2>-<E>^2)/N`,
+`beta*(<M^2>-<M>^2)/N`, `beta*(<M^2>-<|M|>^2)/N`, and
+`U4=1-<M^4>/(3<M^2>^2)`, respectively. `susceptibility_abs` is an
+absolute-magnetization fluctuation proxy, **not** the finite-system linear
+response susceptibility. The signed definition requires sampling both
+magnetization sectors at zero field.
+
+All moments from each time block are deleted together, preserving their
+covariance in the nonlinear errors. Energy is centered before moments are
+formed to avoid subtracting nearly equal large squared energies. Cost is
+linear in sample count plus block count. Blocks must be approximately
+independent: compare multiple block lengths and independent equilibrated
+chains; this function does not diagnose equilibration or choose block sizes.
+At least two equal blocks are required. `binder` must be defined both for
+the full sample and every delete-block sample (`<M^2> > 0`), or an
+`ArgumentError` is raised. Bias-corrected finite-sample estimates can lie
+outside the physical range; inspect `raw` and the uncertainty as well.
+"""
+function ising_observables(E::AbstractVector{<:Real}, M::AbstractVector{<:Real};
+                           beta::Real, nsites::Integer, blocksize::Integer=1)
+    energies = _finite_series(E, 2)
+    magnetic = _finite_series(M, 2)
+    length(energies) == length(magnetic) || throw(ArgumentError("E and M must have equal lengths"))
+    nsites > 0 || throw(ArgumentError("nsites must be positive"))
+    n = Float64(nsites)
+    isfinite(n) || throw(ArgumentError("nsites must have a finite Float64 representation"))
+    b = _check_beta(beta)
+    isfinite(b) || throw(ArgumentError("beta must have a finite Float64 representation"))
+    all(x -> abs(x) <= n, magnetic) || throw(ArgumentError("total magnetization must lie in [-nsites, nsites]"))
+    blocksize > 0 || throw(ArgumentError("blocksize must be positive"))
+    length(energies) % blocksize == 0 || throw(ArgumentError("blocksize must divide the number of observations"))
+    nb = length(energies) ÷ blocksize
+    nb >= 2 || throw(ArgumentError("at least two blocks are required"))
+
+    offset = mean(energies)
+    moments = zeros(nb, 6)
+    for k in 1:nb
+        for i in ((k-1)*blocksize+1):(k*blocksize)
+            e = (energies[i] - offset)/n
+            m = magnetic[i]/n
+            moments[k, 1] += e
+            moments[k, 2] += e^2
+            moments[k, 3] += m
+            moments[k, 4] += abs(m)
+            moments[k, 5] += m^2
+            moments[k, 6] += m^4
+        end
+    end
+    moments ./= blocksize
+    all(isfinite, moments) || throw(ArgumentError("moments overflowed; rescale the energy units"))
+    total = vec(sum(moments; dims=1))
+    function evaluate(v)
+        v[5] > 0 || throw(ArgumentError("Binder cumulant is undefined when a full or delete-block sample has zero mean M^2"))
+        values = (offset/n + v[1], v[4],
+                  b^2*n*(v[2]-v[1]^2),
+                  b*n*(v[5]-v[3]^2),
+                  b*n*(v[5]-v[4]^2),
+                  1-v[6]/(3v[5]^2))
+        all(isfinite, values) || throw(ArgumentError("observable calculation overflowed; rescale the energy units"))
+        values
+    end
+    raw = evaluate(total/nb)
+    replicas = Matrix{Float64}(undef, nb, 6)
+    for k in 1:nb
+        replicas[k, :] .= evaluate((total - @view(moments[k, :]))/(nb-1))
+    end
+    results = ntuple(j -> _jackknife_result(raw[j], @view(replicas[:, j])), 6)
+    return (energy_density=results[1], abs_magnetization_density=results[2],
+            heat_capacity=results[3], susceptibility=results[4],
+            susceptibility_abs=results[5], binder=results[6],
+            n_samples=length(energies), n_blocks=nb, blocksize=Int(blocksize))
 end
 
 """

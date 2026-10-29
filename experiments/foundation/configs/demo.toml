@@ -1,0 +1,12 @@
+name = "foundation-demo"
+seed = 202610300
+algorithms = ["metropolis", "wolff", "swendsen_wang"]
+initial_states = ["random", "up", "down", "random"]
+exact_L = 3
+exact_T = 3.0
+sizes = [8, 16, 24]
+burn = 8192
+samples = 32768
+stride = 1
+block_sizes = [128, 512, 2048]
+maxlag = 512

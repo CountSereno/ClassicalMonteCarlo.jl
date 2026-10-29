@@ -1,0 +1,3 @@
+__pycache__/
+# Keep the executed demo as a small, inspectable evidence artifact.
+/results/research/

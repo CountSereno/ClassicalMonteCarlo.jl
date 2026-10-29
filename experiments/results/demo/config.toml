@@ -1,0 +1,9 @@
+name = "demo"
+seed = 20261029
+sizes = [8, 16, 24]
+temperatures = [2.10, 2.20, 2.269185314213022, 2.34, 2.44]
+chains = 2
+burn = 2000
+samples = 8000
+blocksize = 200
+maxlag = 800

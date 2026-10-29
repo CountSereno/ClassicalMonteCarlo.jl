@@ -1,0 +1,37 @@
+rng_type = "Random.Xoshiro"
+model = "Ising"
+samples_retained = 32768
+trace_sha256 = "863349d978053e0c91b27afd77299a7415de352dd6ef4a9feb8f3b836e082da4"
+boundary = "periodic square"
+units = "kB=1; total E; signed total M"
+julia_version = "1.12.6"
+platform = "arm64-apple-darwin24.0.0"
+complete = true
+work_unit = "accepted_flips"
+schema_version = 1
+work_aggregation = "sum over each measurement interval; not elapsed CPU work"
+update_unit = "metropolis_sweep"
+updates_completed = 40960
+
+[config]
+J = 1.0
+algorithm = "metropolis"
+samples = 32768
+initial = "up"
+seed = 202612318
+L = 3
+stride = 1
+burn = 8192
+beta = 0.3333333333333333
+
+[source_sha256]
+"Project.toml" = "55d7b1cb9bfb7176685acc9e5ab7666e713c620b61b24047ec9bc5458e34e391"
+"src/ClassicalMonteCarlo.jl" = "9e9527302f18cfe5afcccf2edd200539a99560cc9128fe6a9ad2a9d10ca7f183"
+"src/percolation.jl" = "7ddbb67cd370f770c895ad499d5f76eb4ba193ab3a5236669e953756fe80696e"
+"src/acceptance.jl" = "2e372d67eea3211a91527a354dcadcef481ae91d89d116706a8318a37106c412"
+"src/entropic.jl" = "eba6e6d7e0112f72f83d52a29bf361b716abe7bcb99831c7e1477e11cfe8e9d6"
+"src/random.jl" = "7c66f16cdb6ac130bba563bbb167e882794dc1f497734399cc3fdc43f2fc524c"
+"src/analysis.jl" = "d424059cd02f77f06b69e0cc31bba926fd9596c0bd6f38a2c1f220f8be5c62d4"
+"src/runner.jl" = "ce0e7bf59169d7de0d9b4e23de2456a88ee5dbac976a8590006941d89ca7bcaa"
+"src/worm.jl" = "a720ba95b26a8549067ef944c24680c9ba2a41481a83be98fb6e7dcf7a46f486"
+"src/spins.jl" = "a5265d1b08fba359d8bd47b8b8e096821d7113116b9440456239908628fb8449"

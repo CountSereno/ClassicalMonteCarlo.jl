@@ -148,7 +148,7 @@ function sweeny_update!(rng::AbstractRNG, state::BondConfiguration, p::Real, q::
     i = isnothing(edge) ? rand(rng, eachindex(state.occupied)) : edge
     logratio = _sweeny_logratio(state, i, p, q)
     rand(rng) < 0.5 && return false
-    if logratio >= 0 || log(rand(rng)) < logratio
+    if metropolis_accept(rng, logratio)
         state.occupied[i] = !state.occupied[i]
         return true
     end

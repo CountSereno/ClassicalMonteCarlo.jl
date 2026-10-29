@@ -1,0 +1,33 @@
+finished_utc = "2026-10-28T18:22:32.819"
+julia_version = "1.12.6"
+threads = 1
+started_utc = "2026-10-28T18:22:28.790"
+platform = "arm64-apple-darwin24.0.0"
+initial_states = "alternating random/up across independent chains"
+work = "Metropolis accepted flips; Wolff flipped cluster size; neither equals CPU work"
+measurement_interval = "one Metropolis sweep or one Wolff cluster, depending on algorithm"
+units = "J = kB = 1; total E and signed total M in traces; periodic square lattice"
+runtime = "production updates plus E/M measurement; excludes compilation, burn-in, I/O, analysis"
+tau_method = "positive-window rho sum, stops at first nonpositive lag; cannot capture negative tails"
+runs = 42
+
+[source_sha256]
+"spins.jl" = "bfd57176985acfe23ec1e5c7c08173336c81cc6c90b5a17e7c9dee61b5ab4cf4"
+"analysis.jl" = "d424059cd02f77f06b69e0cc31bba926fd9596c0bd6f38a2c1f220f8be5c62d4"
+"random.jl" = "7c66f16cdb6ac130bba563bbb167e882794dc1f497734399cc3fdc43f2fc524c"
+"entropic.jl" = "e199cee1e8293d935ef8a0feed940b2ca9825e3fbff2b7ef646f1b6e1d083431"
+"worm.jl" = "6dc106668da874ac679d03d43fb178cb4e893e16411a62ed2368168638c4b044"
+"experiments/run_ising.jl" = "35e511c94707a5c049e1afdbb27d3bd352d75fcacae8dd6004a29951a7cd305b"
+"ClassicalMonteCarlo.jl" = "be712346e44d5baf939e0dab2431156d6d58bce993c21d2e5b659a50cd42ccb6"
+"percolation.jl" = "77dcace0a5262a691ade3ccb4f862909d0a0390747af604828f382787b204cb3"
+
+[config]
+burn = 2000
+name = "demo"
+blocksize = 200
+samples = 8000
+seed = 20261029
+sizes = [8, 16, 24]
+maxlag = 800
+chains = 2
+temperatures = [2.1, 2.2, 2.269185314213022, 2.34, 2.44]

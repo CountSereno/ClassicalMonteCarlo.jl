@@ -46,7 +46,11 @@ function wang_landau(rng::AbstractRNG, initial; nbins::Integer, bin, propose,
     while steps < max_steps && logf > logf_final
         candidate = propose(rng, state)
         proposed = index(candidate)
-        if log(rand(rng)) < min(0.0, logg[current] - logg[proposed])
+        # Proposal is symmetric; the current adaptive target is 1/g(E).
+        # Draw explicitly to preserve this algorithm's one-variate-per-step
+        # convention, including deterministic acceptance.
+        logratio = logg[current] - logg[proposed]
+        if metropolis_accept(logratio, rand(rng))
             state = candidate
             current = proposed
         end

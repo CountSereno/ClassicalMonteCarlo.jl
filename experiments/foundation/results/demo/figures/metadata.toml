@@ -1,0 +1,12 @@
+plot_project_sha256 = "b0ed86f58238d2a285cfafcbdb33eb82a3efe92249095ab13699d8d4b3cc7424"
+cairomakie_version = "0.15.16"
+julia_version = "1.12.6"
+plot_manifest_sha256 = "d52056bb0f09d6e0a9ee2463d6e672ed08e6a409622c1ded5a224db989d5618a"
+plot_source_sha256 = "7e32242a2ad1476c17dce7e810294ba031f824643d8fbb3df37c7cc19b99a64d"
+table_reader_sha256 = "5c40401ad25a4019e3b7c2616f4a8ea3e621194cecdc799501e0c62c487b070c"
+
+[input_sha256]
+"chains.csv" = "801110242ccecbce2571b6476e809d80d1105ec96a4d0add1dc28d2fb770ce76"
+"aggregate.csv" = "9dc43d72eea4aa8e7aff96ab4c0c306974607a44bda7070ede2e208189cc304d"
+"block_errors.csv" = "9562fa1d81bbe5e4d5181cf9123bdab66c7b6d083a02b199de915d7068b77708"
+"acf.csv" = "2e76d2ca307d2c8c62961f8d6d053d18cf74de477f31bfdd89ef7fdb0135e477"

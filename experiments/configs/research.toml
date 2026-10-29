@@ -1,0 +1,10 @@
+# Starting point for a longer study; not executed or validated as converged.
+name = "research"
+seed = 20261029
+sizes = [8, 16, 24, 32, 48, 64]
+temperatures = [2.10, 2.15, 2.20, 2.23, 2.25, 2.269185314213022, 2.29, 2.31, 2.34, 2.39, 2.44]
+chains = 8
+burn = 20000
+samples = 200000
+blocksize = 5000
+maxlag = 5000

@@ -1,0 +1,35 @@
+baseline_exactly_reproduced = true
+julia_version = "1.12.6"
+maxlags = [512, 1024, 2048]
+runs = 12
+L = 24
+new_samples = 0
+rule = "same first-nonpositive ACF estimator as primary analysis; only maximum lag changes"
+
+[truncations_by_limit]
+512 = 3
+2048 = 0
+1024 = 0
+
+[source_sha256]
+"Project.toml" = "55d7b1cb9bfb7176685acc9e5ab7666e713c620b61b24047ec9bc5458e34e391"
+"experiments/foundation/window_sensitivity.jl" = "e7f1dfd4f3dea8550cf40007494d46d43fe6d432c6e2ca170f0743a5a3b2ac77"
+"experiments/foundation/tables.jl" = "5c40401ad25a4019e3b7c2616f4a8ea3e621194cecdc799501e0c62c487b070c"
+"src/analysis.jl" = "d424059cd02f77f06b69e0cc31bba926fd9596c0bd6f38a2c1f220f8be5c62d4"
+
+[input_sha256]
+"runs/run_039/trace.csv" = "acf136e6d94d57a5cd791f29aa25bddc11556017981f60fc84e6d85ae345b491"
+"runs/run_046/trace.csv" = "15d9926535c5e7a63e3dcbf8eee0edee89b0704b1e7a6af2937a15ea5de6e80a"
+"runs/run_044/trace.csv" = "aceb72c60c6686336535e3675cd821c1732270b990e3e1531021ea052b2b3cd4"
+"manifest.toml" = "8577ee45391fa836eaaf6ae180ffe3f6cd35ba66bfa7aa39566cf362df861a2e"
+"runs/run_042/trace.csv" = "5e39da0626b53d2b30b89e0d61693c8f7b617c92fd1049dd255627ea5b198b40"
+"runs/run_047/trace.csv" = "2ee728f462ca9618214c826bb3adab2e8cf115950e9b27a98be3d138fc6effdd"
+"analysis/chains.csv" = "801110242ccecbce2571b6476e809d80d1105ec96a4d0add1dc28d2fb770ce76"
+"runs/run_041/trace.csv" = "cc8fba91e8486cb901842892ed78c58b4f89da15de441a30d34d2b128277dae6"
+"runs/run_040/trace.csv" = "5d1429478a6b52e9b2a8808afcb5ddb83f7170860662f7e4f6a1bac689ba2920"
+"runs/run_043/trace.csv" = "d0c0265b694fc112055379621d3ccb6d5177d8fac1c6e7d2f1985bf1f5ac9e90"
+"runs/run_048/trace.csv" = "e7ff934a01bef23a4e62887f7ec7e291c3cc0ac8d9942849dbe525492cc5d969"
+"runs/run_038/trace.csv" = "8c4f53ff3704d7841f72d50d67cc211d41bd6e0cfc979bbd054edf4460eb42b9"
+"runs/run_045/trace.csv" = "26b5c866bb2e3d1858cf43d2642debab4623c0eff525242a8182bf5a810fa564"
+"config.toml" = "9bfd28b95a8fbe7330cd04095a8c3b4ec6f2f1394057b29a2a2e769cc06ddb0e"
+"runs/run_037/trace.csv" = "4817a2d1f33370ac22bbfb4728fddc0566e6a7bf763b1ec579f1dee567222d8b"

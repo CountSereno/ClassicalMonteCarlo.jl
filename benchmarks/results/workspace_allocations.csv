@@ -1,0 +1,5 @@
+julia_version,model,L,algorithm,updates,fresh_bytes,reused_bytes
+1.12.6,Ising,16,wolff,1000,2240000,0
+1.12.6,Ising,16,swendsen_wang,1000,4544000,0
+1.12.6,Potts_q3,16,wolff,1000,2240000,0
+1.12.6,Potts_q3,16,swendsen_wang,1000,6336000,0
