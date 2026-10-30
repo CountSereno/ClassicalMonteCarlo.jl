@@ -14,6 +14,7 @@ include("percolation.jl")
 include("worm.jl")
 include("entropic.jl")
 include("analysis.jl")
+include("scaling.jl")
 include("model_observables.jl")
 include("runner.jl")
 

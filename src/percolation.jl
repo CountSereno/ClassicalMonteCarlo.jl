@@ -175,21 +175,21 @@ function sweeny_logratio(occupied::Bool, endpoints_disconnected::Bool, p::Real, 
     occupied ? -log_add_ratio : log_add_ratio
 end
 
+include("bond_connectivity.jl")
+
 # log of the proposed/current random-cluster weight. Skipping the chosen edge
 # distinguishes bridges from edges whose endpoints remain connected.
 function _sweeny_logratio(state::BondConfiguration, edge_index::Integer, p::Real, q::Real;
-                         workspace::BondWorkspace=BondWorkspace(state))
+                         workspace::Union{BondWorkspace,SweenyWorkspace}=SweenyWorkspace(state))
     isfinite(p) && 0 < p < 1 || throw(ArgumentError("Sweeny requires finite 0 < p < 1"))
     isfinite(q) && q > 0 || throw(ArgumentError("q must be finite and positive"))
     checkbounds(state.occupied, edge_index)
-    labels = _bond_components(state; skip=Int(edge_index), workspace=workspace)
-    u, v = state.graph.edges[edge_index]
-    disconnected = labels[u] != labels[v]
+    disconnected = !endpoints_connected(state, edge_index; workspace)
     sweeny_logratio(state.occupied[edge_index], disconnected, p, q)
 end
 
 """
-    sweeny_update!(rng, state, p, q; edge=nothing, workspace=BondWorkspace(state)) -> Bool
+    sweeny_update!(rng, state, p, q; edge=nothing, workspace=SweenyWorkspace(state)) -> Bool
 
 One lazy symmetric single-edge Metropolis proposal for the random-cluster measure
 `p^b (1-p)^(m-b) q^k`, with `b` occupied bonds, `m` total bonds, and `k`
@@ -197,16 +197,24 @@ components including isolated vertices. `q > 0` may be noninteger. A uniformly
 random edge is selected unless `edge` is supplied. The proposal is skipped
 with probability 1/2, ensuring an aperiodic chain even at `p=1/2, q=1`.
 Returns whether it flipped.
-This reference implementation rebuilds connectivity for each proposal and is
-therefore slow on large graphs. Requires `0 < p < 1`.
+The default workspace uses interleaved BFS. Pass `BondWorkspace(state)` for
+the full-rebuild reference. Both preserve the same trajectory and RNG stream.
+Lazy skips need no connectivity query; q=1 also bypasses connectivity.
+Requires `0 < p < 1`. Reuse a workspace to avoid allocation.
 """
 function sweeny_update!(rng::AbstractRNG, state::BondConfiguration, p::Real, q::Real;
                         edge::Union{Nothing,Integer}=nothing,
-                        workspace::BondWorkspace=BondWorkspace(state))
+                        workspace::Union{BondWorkspace,SweenyWorkspace}=SweenyWorkspace(state))
     isempty(state.occupied) && throw(ArgumentError("Sweeny update requires at least one edge"))
     i = isnothing(edge) ? rand(rng, eachindex(state.occupied)) : edge
-    logratio = _sweeny_logratio(state, i, p, q; workspace=workspace)
+    # Validate even skipped proposals. Connectivity is deterministic, so moving
+    # it after the lazy draw preserves every historical random-number decision.
+    checkbounds(state.occupied, i)
+    _check_workspace(workspace, state)
+    sweeny_logratio(false, false, p, q)
     rand(rng) < 0.5 && return false
+    logratio = q == 1 ? sweeny_logratio(state.occupied[i], false, p, q) :
+        _sweeny_logratio(state, i, p, q; workspace=workspace)
     if metropolis_accept(rng, logratio)
         state.occupied[i] = !state.occupied[i]
         return true
@@ -218,11 +226,11 @@ sweeny_update!(state::BondConfiguration, p::Real, q::Real; kwargs...) = sweeny_u
 """
 Attempt `m` uniformly random lazy single-edge updates with replacement; return
 the number accepted. Reuse `workspace` across sweeps to retain scratch storage.
-A full connectivity rebuild per proposal remains: roughly O(m*(n+m)) work per
-sweep, apart from near-constant amortized union-find factors.
+The default IBFS stops each search early but retains O(m*(n+m)) worst-case
+sweep cost. The reference `BondWorkspace` rebuilds the full graph each query.
 """
 function sweeny_sweep!(rng::AbstractRNG, state::BondConfiguration, p::Real, q::Real;
-                       workspace::BondWorkspace=BondWorkspace(state))
+                       workspace::Union{BondWorkspace,SweenyWorkspace}=SweenyWorkspace(state))
     isempty(state.occupied) && throw(ArgumentError("Sweeny sweep requires at least one edge"))
     accepted = 0
     for _ in eachindex(state.occupied)

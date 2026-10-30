@@ -41,9 +41,10 @@ E = observations(resumed).total_energy
 m = observations(resumed).order_parameter
 ```
 
-These example lengths are not a convergence prescription. Sweeny still rebuilds
-connectivity after bond changes; workspaces remove repeated scratch allocation,
-but do not implement dynamic connectivity or make large graphs cheap.
+These example lengths are not a convergence prescription. Sweeny now uses a
+reusable interleaved BFS workspace; metadata records `interleaved_bfs`. Full
+cluster measurements have separate union-find scratch. The graph topology is
+fixed while occupations change. See the [connectivity/scaling study](../experiments/scaling/README.md).
 
 `RunSpec` keeps the original Ising constructor. `PottsRunSpec` is periodic square,
 integer q≥2, zero field; `:random` and `:ordered` initial states are supported.
@@ -136,7 +137,7 @@ file. Checkpoints are written through a temporary file and same-directory rename
 Atomic replacement on supported local filesystems is not a guarantee against all
 power-loss or filesystem failures.
 
-The shared model-specific state uses checkpoint **schema 2**. Schema 1 native
+The shared model-specific state uses checkpoint **schema 3**. Schema 1 and 2 native
 checkpoints require the original code environment and are rejected here before
 deserialization. There is no implicit migration. Old portable CSV/TOML datasets
 remain readable independently of native restart, and their recorded source

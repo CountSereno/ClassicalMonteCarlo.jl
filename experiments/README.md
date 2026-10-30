@@ -6,6 +6,9 @@
 Julia/CairoMakie 分析绘图，增加独立精确枚举对照及更长的链。下文保留前一轮
 42 条链的结果；其复现声明对应随数据记录的源码版本，而非之后的算法重构。
 
+最新的 [Sweeny 连通性与有限尺寸标度实验](scaling/README.md) 扩大到 L=64，
+保存独立多链、幂律拟合、尺寸截断敏感性和双端 BFS 配对性能基准。
+
 ## 直接查看
 
 - [算法比较](results/demo/figures/algorithm_comparison.png)：相关时间、近似自旋工作单位、单位实际时间的有效样本数。

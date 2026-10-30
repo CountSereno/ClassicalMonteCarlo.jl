@@ -74,14 +74,23 @@ allocated bytes.
 `BondWorkspace(graph_or_state)` similarly owns reusable connectivity arrays.
 `cluster_statistics` obtains all four geometric observations from one component
 calculation and consumes no RNG values. Measurements may reuse the kernel's
-scratch arrays because each later query resets them. No connectivity is assumed
-to survive a bond deletion. A Sweeny sweep still rebuilds connectivity for each
-attempt, roughly O(m*(n+m)) work apart from union-find factors; workspace reuse
-does not change that scaling.
+scratch arrays because each later query resets them. This is the full-rebuild
+reference. The default `SweenyWorkspace` instead uses static contiguous adjacency,
+two BFS queues and signed visit stamps. Searches alternate endpoints and stop on
+contact or exhaustion of one component. Only graph topology is cached, never
+connectivity across bond changes. Graph topology must remain fixed.
+
+`endpoints_connected`, the pure `sweeny_logratio`, and the acceptance filter have
+separate responsibilities. Lazy skips and q=1 avoid queries, with exactly the
+same RNG stream and trajectory as the original algorithm. Cluster measurement
+uses a separate `BondWorkspace` inside the Sweeny workspace. Both algorithms
+retain O(m*(n+m)) worst-case sweep cost; IBFS is not a dynamic forest.
+The [paired timing study](../experiments/scaling/README.md) measures actual
+speedups independently of allocation and checks identical final states/RNG.
 
 The separate [bond allocation probe](../benchmarks/bonds.jl) reports allocation
 for updates and measurements independently. Its measured [L=8 result](../benchmarks/results/bond_allocations.csv)
-on Julia 1.12.6 uses 1,000 sweeps: fresh per-sweep scratch allocated 1,152,000 B,
+from commit 44ddbc7 on Julia 1.12.6 uses 1,000 reference sweeps: fresh per-sweep scratch allocated 1,152,000 B,
 while reused sweeps and reused geometric measurements each allocated 0 measured
 heap bytes. Production traces and checkpoint storage still allocate memory.
 
@@ -121,7 +130,7 @@ bonds. These are never treated as a common CPU-work unit.
 Portable CSV/TOML exports support independent analysis. A checksum-guarded local
 checkpoint preserves the in-memory state for trusted, same-environment restart.
 Restoration rejects incompatible versions/configuration/code; it is not a
-general cross-version interchange format. Schema 2 explicitly rejects schema 1
+general cross-version interchange format. Schema 3 adds IBFS scratch/backend metadata and rejects schema 1/2
 native checkpoints; their original source environment is needed for restart.
 Portable historical CSV/TOML datasets remain readable. The runner keeps traces in
 memory, O(samples), and does not yet implement streaming, MPI, arbitrary models,
@@ -144,3 +153,12 @@ When extending a kernel, first add its mathematical ratio, then a readable
 reference transition, exact/invariant tests, and only then an optimized path.
 When adding a model to the runner, define its state and estimator units explicitly
 rather than adding unrelated optional fields to the existing Ising specification.
+
+## Finite-size inference
+
+`src/scaling.jl` accepts numeric arrays independently of models and runners.
+Positive-data power fits use centered QR; adjacent effective exponents retain
+their shared-data covariance. The [scaling experiment](../experiments/scaling/README.md)
+keeps fit cutoffs, fixed correction ansatzes, block/bootstrap uncertainty and
+source/input hashes in analysis artifacts. A fit standard error does not include
+corrections to scaling or failure to equilibrate.

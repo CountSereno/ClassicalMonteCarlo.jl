@@ -17,7 +17,7 @@ end
 
 WolffKernel(model::Union{Ising,Potts}) = WolffKernel(WolffWorkspace(model))
 SwendsenWangKernel(model::Union{Ising,Potts}) = SwendsenWangKernel(SwendsenWangWorkspace(model))
-SweenyKernel(model::BondConfiguration) = SweenyKernel(BondWorkspace(model))
+SweenyKernel(model::BondConfiguration) = SweenyKernel(SweenyWorkspace(model))
 IndependentBondKernel(model::BondConfiguration) = IndependentBondKernel(BondWorkspace(model))
 
 update_unit(::MetropolisKernel) = "metropolis_sweep"
@@ -92,7 +92,7 @@ end
 function _record_observations!(trace, model::BondConfiguration, ::RandomClusterRunSpec, kernel)
     # One component calculation supplies all cluster observables. It consumes
     # no random values and never recolours a random-cluster configuration.
-    result = cluster_statistics(model; workspace=kernel.workspace)
+    result = cluster_statistics(model; workspace=_measurement_workspace(kernel.workspace))
     for name in keys(trace)
         push!(getproperty(trace, name), getproperty(result, name))
     end
@@ -164,6 +164,9 @@ function _validate_kernel(kernel, model, spec)
         kernel isa Union{WolffKernel,SwendsenWangKernel} && _check_workspace(kernel.workspace, model)
     else
         kernel isa Union{SweenyKernel,IndependentBondKernel} || throw(ArgumentError("invalid random-cluster kernel"))
-        _check_workspace(kernel.workspace, model)
+        _validate_connectivity(kernel.workspace, model)
     end
 end
+
+_connectivity_backend(::AbstractUpdateKernel) = "not_applicable"
+_connectivity_backend(k::SweenyKernel) = k.workspace isa SweenyWorkspace ? "interleaved_bfs" : "union_find_rebuild"

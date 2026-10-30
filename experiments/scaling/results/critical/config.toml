@@ -1,0 +1,19 @@
+name = "critical-cluster-scaling"
+seed = 2026103101
+sizes = [8, 12, 16, 24, 32, 48, 64]
+q_values = [2.0, 3.0]
+burn = 8192
+samples = 16384
+stride = 1
+rc_initials = ["empty", "full", "random", "random"]
+potts_initials = ["random", "ordered", "random", "ordered"]
+spin_sizes = [16, 32, 64]
+spin_q = 3
+block_sizes = [128, 512, 2048]
+primary_block = 512
+maxlag = 1024
+bootstrap_replicas = 400
+analysis_seed = 2026103199
+# Independent finite-graph checks in the shared verifier, not production cases.
+exact_L = 3
+potts_q = 3

@@ -1,0 +1,53 @@
+rng_type = "Xoshiro"
+model = "RandomCluster"
+samples_retained = 16384
+trace_sha256 = "5e02d3544a11e9800c3423d368e2a163349e49c89ac04056d4a8bec3c0045a0b"
+trace_columns = ["measurement", "update", "occupied_bonds", "cluster_count", "largest_cluster", "cluster_size_squared_sum", "kernel_work"]
+boundary = "periodic square"
+units = "bond/component/site counts; no spin energy or signed magnetization"
+julia_version = "1.12.6"
+platform = "arm64-apple-darwin24.0.0"
+connectivity_backend = "interleaved_bfs"
+complete = true
+work_unit = "accepted_bond_flips"
+schema_version = 3
+work_aggregation = "sum over each measurement interval; not elapsed CPU work"
+update_unit = "sweeny_sweep"
+updates_completed = 24576
+
+[config]
+model = "RandomCluster"
+L = 64
+stride = 1
+q = 3.0
+periodic = true
+algorithm = "sweeny"
+initial = "random"
+samples = 16384
+seed = 2026159605
+p = 0.6339745962155613
+burn = 8192
+
+[observable_units]
+occupied_bonds = "occupied edge count"
+largest_cluster = "sites in largest component"
+cluster_count = "components including isolated vertices"
+cluster_size_squared_sum = "sum of squared component site counts"
+
+[source_sha256]
+"src/runner/specifications.jl" = "a8579081ca804ee523388626b077c060a8b7c41d262a08a6521846d8c6eef0cc"
+"Project.toml" = "55d7b1cb9bfb7176685acc9e5ab7666e713c620b61b24047ec9bc5458e34e391"
+"src/ClassicalMonteCarlo.jl" = "2d1edf136c66add8d5404cb734e4ddf701bb1d311f311ed3315eba32dd6b1a42"
+"src/percolation.jl" = "4d4298dbaef31bca9d51b0133e5bc4ce989d3cf57970b5b5ce755256131b79b5"
+"src/acceptance.jl" = "2e372d67eea3211a91527a354dcadcef481ae91d89d116706a8318a37106c412"
+"src/random.jl" = "7c66f16cdb6ac130bba563bbb167e882794dc1f497734399cc3fdc43f2fc524c"
+"src/runner/adapters.jl" = "9e44b13b3bb5009d2b91ea3d390fee78e1a65846dd776bae1d1f780f392fb528"
+"src/analysis.jl" = "d424059cd02f77f06b69e0cc31bba926fd9596c0bd6f38a2c1f220f8be5c62d4"
+"src/disjoint_sets.jl" = "9489f38fda2bc1adec7497fa764dfd25c11cdbb4b771962739a121bcd7bcfefb"
+"src/model_observables.jl" = "e904e8404a7eb1b4ff8336369bf0a95e78c0c25e34513216db8a557960d91952"
+"src/scaling.jl" = "3c934b7f0fffb7637289f5a80cef95bd2fe79ea68bde4e34862fad543c319850"
+"src/runner.jl" = "24b932eb08c7a19b4bf482a1b419db2ffe1693369ae1818c29e005f1096cc371"
+"src/worm.jl" = "a720ba95b26a8549067ef944c24680c9ba2a41481a83be98fb6e7dcf7a46f486"
+"src/entropic.jl" = "eba6e6d7e0112f72f83d52a29bf361b716abe7bcb99831c7e1477e11cfe8e9d6"
+"src/bond_connectivity.jl" = "49bbcc574ef39777c170418a032dac17208c7f641dae161b19acd10d0eccaa63"
+"src/spins.jl" = "88233faefdb76a126418423e66a4923560bff0e696859e62eafe26cc2a85d371"

@@ -1,0 +1,32 @@
+cairomakie_version = "0.15.16"
+julia_version = "1.12.6"
+benchmark_sha256 = "aa7b3ed40bae7edae783844fc905853ef2e9e27d54decbff6c5d340d42e7d3dd"
+
+[input_sha256]
+"analysis/acf.csv" = "958e241540de6999da0b4d361c6b83fd19c6c70de05f393de3ed383ac4d4c4ab"
+"analysis/effective_exponents.csv" = "dbef26f5235b4de6a1106305c09b168b4f200f4b4c60c97840530560788d084b"
+"analysis/block_errors.csv" = "ca4f9075955da9a81cdf9dbd640db985eff6029212fd19218e8fd48e40bd9c4f"
+"analysis/fk_comparison.csv" = "977da7127d706b42822155f6ac6ce6587e45e1eb8c53c0dbd182ad1abb150fb7"
+"analysis/aggregate.csv" = "2910be383c532e5f0232004a53a223cde1b7f1e333b83a6ac0f6e2f9b1101e27"
+"analysis/power_fits.csv" = "20c118640e7846eb5063fb2e0f205352b7cb4d284b1e801d8a3649851fcf44c8"
+
+[source_sha256]
+"experiments/plotting/Project.toml" = "b0ed86f58238d2a285cfafcbdb33eb82a3efe92249095ab13699d8d4b3cc7424"
+"experiments/scaling/common.jl" = "f0aebb1a6111864d337187f451801f4cdb74d2e29182cffb22f759b024444221"
+"experiments/plotting/Manifest.toml" = "d52056bb0f09d6e0a9ee2463d6e672ed08e6a409622c1ded5a224db989d5618a"
+"experiments/multimodel/tables.jl" = "aef05e6fa9dad6d01c1395ab125b33e7fd9f95ecf2b93fa4af64f9b1a049a5c5"
+"experiments/scaling/plot.jl" = "284e249d547a9759c8e096e895ce99bd488fcdc35a306aab79d28af4caec2ec9"
+
+[output_sha256]
+"connectivity_performance.svg" = "f307bb993c9a099a7d7b3f74426b6f001df170392ae6649802318836d73bde24"
+"chain_diagnostics.pdf" = "3aef145fbb5155d1c9b994bc055fa28ac69a22ef222ede188bfb75bd66b06399"
+"chain_diagnostics.svg" = "8f8ddb5aca63baa1348183be032aef0ef90ebd26eaa9126aa5d5a40ee3e97497"
+"fit_diagnostics.png" = "cf9ff0fd902fa4b67ee05f4889fad520be72bb878462c51d6593e7275f7bf191"
+"fit_diagnostics.svg" = "2c6c3fa83bed1d4059ab957044f8145b8d42de4fe8a8155ce9085b6f77796200"
+"connectivity_performance.pdf" = "0f84fefd27f80c5e2d91531cd5fb602c7b635a3ade8e15fc8e8e16a43a841e99"
+"critical_scaling.pdf" = "3de5c30c45e22dc71e96b00db544080b714a428c7bb239ca5f47d710dd3ad126"
+"critical_scaling.svg" = "b304c4854fbcf76ba23c31a80e3e188fefbe18e032b1a84ff6f1ff7181553edc"
+"connectivity_performance.png" = "3b1bee66a07f0e55aa92588902cc88ec000368b6e89e396c3d623c59dc2cfb6a"
+"fit_diagnostics.pdf" = "2a90550e88c940ec40981b6febeb65c55b5b58084523d02546e9414774a6c929"
+"chain_diagnostics.png" = "d236780648bb74cb77f62a02ef290961df13c2edcee78cdaae1ca4d331227d48"
+"critical_scaling.png" = "168802f84d9b3aac68ee285bfefb9093a3fd15d579ed535232a14793ecf9b34d"

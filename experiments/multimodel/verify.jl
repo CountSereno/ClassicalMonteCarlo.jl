@@ -17,7 +17,7 @@ function verify(root; require_current_source=false)
             meta = TOML.parsefile(joinpath(folder, "metadata.toml"))
             trace_path = joinpath(folder, "trace.csv")
             @test bytes2hex(sha256(read(trace_path))) == meta["trace_sha256"]
-            @test meta["schema_version"] == 2
+            @test meta["schema_version"] in (2,3)
             @test meta["complete"]
             @test meta["model"] == row["family"]
             @test meta["config"]["model"] == row["family"]

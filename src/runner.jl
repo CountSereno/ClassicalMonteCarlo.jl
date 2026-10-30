@@ -8,10 +8,10 @@ export AbstractRunSpec, RunSpec, PottsRunSpec, RandomClusterRunSpec, RunState,
        update_unit, work_unit, save_checkpoint, load_checkpoint, export_run,
        run_metadata
 
-# Schema 2 adds typed model-specific observation tables and new specification
-# families. Old native checkpoints require their original source environment.
-const RUN_SCHEMA_VERSION = 2
-const _CHECKPOINT_MAGIC = "ClassicalMonteCarlo checkpoint 2"
+# Schema 3 records the Sweeny connectivity backend and serializes IBFS scratch.
+# Older native checkpoints require their original source environment.
+const RUN_SCHEMA_VERSION = 3
+const _CHECKPOINT_MAGIC = "ClassicalMonteCarlo checkpoint 3"
 
 include("runner/specifications.jl")
 include("runner/adapters.jl")
@@ -143,6 +143,7 @@ function run_metadata(state::RunState)
         "trace_columns" => _trace_columns(state),
         "observable_units" => _observable_units(state.spec),
         "update_unit" => update_unit(state.kernel), "work_unit" => work_unit(state.kernel),
+        "connectivity_backend" => _connectivity_backend(state.kernel),
         "work_aggregation" => "sum over each measurement interval; not elapsed CPU work",
         "updates_completed" => state.updates,
         "samples_retained" => length(state.measurement_updates),

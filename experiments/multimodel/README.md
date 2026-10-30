@@ -108,7 +108,7 @@ The same graph, boundary, q and p=1-exp(-beta*J) are essential. The q=1.5
 ensembles have a valid bond measure and exact reference, but no integer-colour
 spin model is assigned to them. For the random-cluster representation and
 connectivity costs see [Elçi and Weigel](https://arxiv.org/html/1307.6647v4).
-Our Sweeny code rebuilds connectivity with reusable scratch memory. It does not
+The code used for this recorded dataset rebuilds connectivity with reusable scratch memory. It does not
 implement the dynamic-connectivity algorithm studied in that work.
 
 ## Error bars, correlations and costs
@@ -156,3 +156,11 @@ require explicitly recording edge-attempt time and a suitable estimator.
 The core package contains the reusable estimators and runner. This directory
 contains the study-specific design, exact references and presentation, keeping
 physics state updates independent of tables, plotting and filesystem layout.
+
+## Historical source environment
+
+The included dataset was generated at [commit 44ddbc7](https://github.com/CountSereno/ClassicalMonteCarlo.jl/tree/44ddbc750e7fa32878ee9a5b42ddabf921326674).
+Its schema-2 native checkpoints require that environment. Current code uses
+IBFS and schema 3; historical CSV/TOML remains readable. Omit
+`--require-current-source` when verifying historical data against a newer tree.
+The [next-stage study](../scaling/README.md) records the new backend and larger sizes.

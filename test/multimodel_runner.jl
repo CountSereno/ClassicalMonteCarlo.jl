@@ -126,7 +126,7 @@ end
             output = joinpath(dir, "run-$index")
             export_run(output, state)
             metadata = TOML.parsefile(joinpath(output, "metadata.toml"))
-            @test metadata["schema_version"] == 2
+            @test metadata["schema_version"] == ClassicalMonteCarlo.RUN_SCHEMA_VERSION
             @test metadata["model"] == metadata["config"]["model"]
             @test metadata["samples_retained"] == 4
             @test metadata["complete"]
